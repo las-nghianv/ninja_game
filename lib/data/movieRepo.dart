@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import '../models/media_preview.dart';
 
 class MovieRepo {
-  final String _apiKey = 'ca912b14f16546bedaa8fbac0babf439'; // Cần thay bằng API Key thực tế của bạn
+  final String _apiKey = 'ca912b14f16546bedaa8fbac0babf439'; // Replace with your actual API Key
   final String _baseUrl = 'https://api.themoviedb.org/3';
 
   Future<List<MediaPreview>> getTrendingMovies() async {
@@ -27,7 +27,7 @@ class MovieRepo {
     }
   }
 
-  /// Lấy YouTube Key của Trailer cho một bộ phim cụ thể
+  /// Get YouTube Trailer Key for a specific movie
   Future<String?> getMovieTrailerKey(int movieId) async {
     final url = Uri.parse('$_baseUrl/movie/$movieId/videos?api_key=$_apiKey');
 
@@ -63,7 +63,7 @@ class MovieRepo {
     final now = DateTime.now();
     final difference = now.difference(lastDate).inDays;
 
-    return difference < 3; // Cache còn hạn 3 ngày
+    return difference < 3; // Cache valid for 3 days
   }
 
   List<MediaPreview> getCachedMovies() {

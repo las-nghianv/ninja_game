@@ -1,21 +1,20 @@
 import 'dart:math' as math;
 
 import 'package:flame/components.dart';
-import 'package:flutter/material.dart';
 
 import '../components/cloud_data.dart';
 import '../components/strip_component.dart';
 import '../components/movie_box.dart';
 import '../models/media_preview.dart';
 
-/// Quản lý việc spawn (tạo ra) các đối tượng game: chướng ngại vật, coin, hộp quà, mây, platform.
+/// Manages the spawning of game objects: obstacles, coins, gift boxes, clouds, platforms.
 ///
-/// Nhận tham chiếu tới các list và thuộc tính cần thiết từ [DinoRunnerGame]
-/// thông qua các getter/setter được expose dưới dạng public.
+/// Receives references to the necessary lists and properties from [DinoRunnerGame]
+/// through public getters/setters.
 class SpawnManager {
   final math.Random _rng = math.Random();
 
-  // Tham chiếu tới game để gọi add() và đọc kích thước màn hình
+  // Reference to the game to call add() and read screen size
   final SpawnManagerContext ctx;
 
   SpawnManager(this.ctx);
@@ -50,12 +49,12 @@ class SpawnManager {
     if (ctx.movies.isEmpty) return;
 
     final movie = ctx.movies[_rng.nextInt(ctx.movies.length)];
-    final double boxSize = 50 * ctx.scale; // Tăng size một chút để dễ nhìn poster
+    final double boxSize = 50 * ctx.scale; // Increase size slightly for better poster visibility
     final double yPos = _getRandomSafeY(boxSize);
     
     final MovieBox box = MovieBox(
       movie: movie,
-      size: Vector2(boxSize * 0.7, boxSize), // Poster thường dọc
+      size: Vector2(boxSize * 0.7, boxSize), // Poster is usually vertical
       position: Vector2(ctx.screenSize.x + 20, yPos),
     );
     
@@ -85,7 +84,7 @@ class SpawnManager {
     ctx.addComponent(cloud);
   }
 
-  /// Spawn platform và trả về width để tính timer tiếp theo.
+  /// Spawn platform and return width to calculate next timer.
   double spawnPlatform({double? initialX}) {
     final double height =
         ctx.platformSprite.srcSize.y * ctx.platformHeightScale;
@@ -126,7 +125,7 @@ class SpawnManager {
   }
 }
 
-/// Interface mô tả các dữ liệu/callback mà SpawnManager cần từ game.
+/// Interface describing the data/callbacks that SpawnManager needs from the game.
 abstract class SpawnManagerContext {
   Vector2 get screenSize;
   double get scale;

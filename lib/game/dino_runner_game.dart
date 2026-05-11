@@ -6,19 +6,20 @@ import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:ui' as ui;
 
 import '../components/ground_component.dart';
 import '../components/hud_bar.dart';
 import '../components/strip_component.dart';
 import '../const/game_constants.dart';
 import '../models/media_preview.dart';
-import '../components/movie_box.dart';
 import 'collision_manager.dart';
 import 'player_controller.dart';
 import 'scroll_manager.dart';
 import 'spawn_manager.dart';
 
-/// Game chính: chịu trách nhiệm khởi tạo, điều phối các manager và quản lý vòng đời game.
+/// Main Game: responsible for initialization, coordinating managers, and managing game lifecycle.
 class DinoRunnerGame extends FlameGame {
   // ─── Sprites ─────────────────────────────────────────────────────────────
   late final TiledGroundComponent _ground;
@@ -173,6 +174,9 @@ class DinoRunnerGame extends FlameGame {
     _scrollManager = ScrollManager(_ScrollContext(this));
     _collisionManager = CollisionManager(_CollisionContext(this));
     _playerController = PlayerController(_PlayerContext(this));
+
+    // Pre-load movie posters
+    await _preloadMovieImages();
 
     // Spawn initial platforms
     final double w1 = _spawnManager.spawnPlatform(initialX: size.x * 0.55);
@@ -424,6 +428,31 @@ class DinoRunnerGame extends FlameGame {
         ) *
         _scale;
     _coinSize = GameConstants.baseCoinSize * _scale;
+  }
+
+  Future<void> _preloadMovieImages() async {
+    if (movies.isEmpty) return;
+    
+    // Only pre-load up to 10 movies to avoid overload
+    final toPreload = movies.take(10).toList();
+    
+    final futures = toPreload.map((movie) async {
+      if (movie.poster.isEmpty) return;
+      if (images.containsKey(movie.poster)) return;
+      
+      try {
+        final response = await http.get(Uri.parse(movie.poster));
+        if (response.statusCode == 200) {
+          final codec = await ui.instantiateImageCodec(response.bodyBytes);
+          final frame = await codec.getNextFrame();
+          images.add(movie.poster, frame.image);
+        }
+      } catch (e) {
+        debugPrint('Error preloading ${movie.title}: $e');
+      }
+    });
+    
+    await Future.wait(futures);
   }
 }
 

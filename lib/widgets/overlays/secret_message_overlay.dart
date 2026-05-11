@@ -8,7 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../game/dino_runner_game.dart';
 import '../../models/media_preview.dart';
 
-/// Overlay hiện thông tin phim bí mật khi người chơi chạm vào hộp quà.
+/// Overlay that displays secret movie information when the player touches a gift box.
 class SecretMessageOverlay extends StatefulWidget {
   final DinoRunnerGame game;
   const SecretMessageOverlay({super.key, required this.game});
@@ -193,7 +193,7 @@ class _SecretMessageOverlayState extends State<SecretMessageOverlay> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Không tìm thấy Trailer cho phim này'),
+                content: Text('Trailer not found for this movie'),
               ),
             );
           }

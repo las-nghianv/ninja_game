@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../components/strip_component.dart';
 
-/// Quản lý vật lý và điều khiển nhân vật: nhảy, trọng lực, đáp xuống mặt đất/platform.
+/// Manages physics and character control: jumping, gravity, landing on ground/platforms.
 class PlayerController {
   final PlayerControllerContext ctx;
   PlayerController(this.ctx);
@@ -102,7 +102,7 @@ class PlayerController {
   }
 }
 
-/// Interface mô tả dữ liệu/callback mà PlayerController cần từ game.
+/// Interface describing the data/callbacks that PlayerController needs from the game.
 abstract class PlayerControllerContext {
   double get gravity;
   double get jumpSpeed;

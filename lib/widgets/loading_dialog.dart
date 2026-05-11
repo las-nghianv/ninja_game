@@ -13,7 +13,7 @@ class LoadingDialog extends StatefulWidget {
 
 class _LoadingDialogState extends State<LoadingDialog> {
   double _progress = 0;
-  String _status = 'Đang tải danh sách phim...';
+  String _status = 'Fetching movies...';
   final MovieRepo _movieRepo = MovieRepo();
 
   @override
@@ -28,7 +28,7 @@ class _LoadingDialogState extends State<LoadingDialog> {
       final movies = await _movieRepo.getTrendingMovies();
       setState(() {
         _progress = 0.3;
-        _status = 'Đã tải xong danh sách. Đang lấy Trailer...';
+        _status = 'Movies fetched. Getting trailers...';
       });
 
       // 2. Tải Trailer Key cho từng phim
@@ -39,17 +39,17 @@ class _LoadingDialogState extends State<LoadingDialog> {
 
         setState(() {
           _progress = 0.3 + (0.6 * (i + 1) / movies.length);
-          _status = 'Đang tải trailer (${i + 1}/${movies.length})...';
+          _status = 'Loading trailers (${i + 1}/${movies.length})...';
         });
       }
 
       // 3. Lưu Cache
-      setState(() => _status = 'Đang lưu cache...');
+      setState(() => _status = 'Saving cache...');
       await _movieRepo.saveMoviesToCache(fullData);
 
       setState(() {
         _progress = 1.0;
-        _status = 'Hoàn tất!';
+        _status = 'Complete!';
       });
 
       await Future.delayed(const Duration(milliseconds: 500));
@@ -58,7 +58,7 @@ class _LoadingDialogState extends State<LoadingDialog> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi tải dữ liệu: $e')),
+          SnackBar(content: Text('Data loading error: $e')),
         );
       }
     }
@@ -74,7 +74,7 @@ class _LoadingDialogState extends State<LoadingDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'ĐANG CHUẨN BỊ TÀI NGUYÊN',
+              'PREPARING RESOURCES',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             const SizedBox(height: 24),

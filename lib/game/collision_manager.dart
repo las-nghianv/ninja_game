@@ -8,7 +8,7 @@ import '../components/effects.dart';
 import '../components/movie_box.dart';
 import '../models/media_preview.dart';
 
-/// Quản lý toàn bộ logic va chạm và hậu quả: mất mạng, thu coin, mở hộp bí mật.
+/// Manages all collision logic and consequences: losing life, collecting coins, opening secret boxes.
 class CollisionManager {
   final CollisionManagerContext ctx;
   CollisionManager(this.ctx);
@@ -121,7 +121,7 @@ class CollisionManager {
   }
 }
 
-/// Interface mô tả dữ liệu/callback mà CollisionManager cần từ game.
+/// Interface describing the data/callbacks that CollisionManager needs from the game.
 abstract class CollisionManagerContext {
   bool get isInvulnerable;
   double get scale;

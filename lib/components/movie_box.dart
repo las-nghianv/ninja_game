@@ -13,15 +13,67 @@ class MovieBox extends SpriteComponent with HasGameRef {
     required Vector2 position,
     required Vector2 size,
   }) : super(position: position, size: size) {
-    // Thêm một màu nền placeholder (ví dụ: xám đậm)
-    paint = Paint()..color = const Color(0xFF333333);
+    // Màu nền tối cho hộp
+    paint = Paint()..color = const Color(0xFF1A1A1A);
   }
 
   @override
   void render(Canvas canvas) {
-    // Vẽ placeholder trước
-    canvas.drawRect(size.toRect(), paint);
-    super.render(canvas);
+    final rect = size.toRect();
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(8));
+
+    // 1. Vẽ bóng đổ/phát sáng nhẹ
+    canvas.drawRRect(
+      rrect.shift(const Offset(2, 2)),
+      Paint()
+        ..color = Colors.black.withOpacity(0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+
+    // 2. Vẽ nền hộp
+    canvas.drawRRect(rrect, paint);
+
+    // 3. Vẽ Poster (nếu có)
+    if (sprite != null) {
+      canvas.save();
+      canvas.clipRRect(rrect);
+      super.render(canvas);
+      canvas.restore();
+    } else {
+      // Nếu chưa có ảnh, vẽ icon Mystery hoặc dấu chấm hỏi
+      _renderMysteryIcon(canvas, rect);
+    }
+
+    // 4. Vẽ khung viền (Border) màu vàng/neon cho nổi bật
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..color = const Color(0xFFFFD700)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+  }
+
+  void _renderMysteryIcon(Canvas canvas, Rect rect) {
+    final textPainter = TextPainter(
+      text: const TextSpan(
+        text: '?',
+        style: TextStyle(
+          color: Color(0xFFFFD700),
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    
+    textPainter.paint(
+      canvas,
+      Offset(
+        rect.center.dx - textPainter.width / 2,
+        rect.center.dy - textPainter.height / 2,
+      ),
+    );
   }
 
   @override
@@ -30,25 +82,23 @@ class MovieBox extends SpriteComponent with HasGameRef {
     
     if (movie.poster.isNotEmpty) {
       try {
-        // Kiểm tra cache của Flame trước
+        // Ưu tiên lấy từ cache (đã được pre-load)
         if (Flame.images.containsKey(movie.poster)) {
           sprite = Sprite(Flame.images.fromCache(movie.poster));
           return;
         }
 
-        // Nếu chưa có, tải từ network
+        // Fallback nếu pre-load chưa xong hoặc lỗi
         final response = await http.get(Uri.parse(movie.poster));
         if (response.statusCode == 200) {
           final codec = await ui.instantiateImageCodec(response.bodyBytes);
           final frame = await codec.getNextFrame();
           final image = frame.image;
-          
-          // Lưu vào cache để các hộp khác cùng phim không phải tải lại
           Flame.images.add(movie.poster, image);
           sprite = Sprite(image);
         }
       } catch (e) {
-        print('Error loading movie poster: $e');
+        debugPrint('Error loading movie poster: $e');
       }
     }
   }

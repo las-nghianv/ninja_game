@@ -3,7 +3,7 @@ import 'package:flame/components.dart';
 import '../components/cloud_data.dart';
 import '../components/strip_component.dart';
 
-/// Quản lý việc di chuyển và xóa tất cả đối tượng đang scroll trên màn hình.
+/// Manages the movement and removal of all scrolling objects on the screen.
 class ScrollManager {
   final ScrollManagerContext ctx;
   ScrollManager(this.ctx);
@@ -61,7 +61,7 @@ class ScrollManager {
   }
 }
 
-/// Interface mô tả dữ liệu mà ScrollManager cần từ game.
+/// Interface describing the data that ScrollManager needs from the game.
 abstract class ScrollManagerContext {
   double get scrollSpeed;
 

@@ -8,7 +8,7 @@ void main() async {
   await Hive.initFlutter();
   Hive.registerAdapter(MediaPreviewAdapter());
   await Hive.openBox<MediaPreview>('movies_cache');
-  await Hive.openBox('settings'); // Để lưu timestamp cache
+  await Hive.openBox('settings'); // To save cache timestamp
   runApp(const MyApp());
 }
 
