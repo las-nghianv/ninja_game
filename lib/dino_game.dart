@@ -158,12 +158,12 @@ class DinoRunnerGame extends FlameGame {
   }
 
   void _createHearts() {
-    final double hudHeight = size.y * 0.05;
+    final double hudHeight = size.y * 0.1;
     for (int i = 0; i < _lives; i++) {
       final heart = TextComponent(
         text: '❤️',
         textRenderer: TextPaint(style: TextStyle(fontSize: 24 * _scale)),
-        // Căn lề phải và đặt sát đáy thanh HUD
+        // Căn lề phải và đặt sát đáy thanh HUD (10% height)
         position: Vector2(
           size.x - (36 * _scale * (i + 1)),
           hudHeight - (24 * _scale) - 4 * _scale,
@@ -188,15 +188,19 @@ class DinoRunnerGame extends FlameGame {
       if (_dino.position.y > groundTop - _dinoSize.y) {
         _dino.position.y = groundTop - _dinoSize.y;
       }
-      final double topPadding = size.y * 0.05;
+      
+      final double hudHeight = size.y * 0.1;
+      
+      // Cập nhật vị trí Coin Icon và Text về đáy HUD
       _coinIcon.size = Vector2.all(_coinSize);
-      _coinIcon.position = Vector2(12 * _scale, topPadding);
-      _coinText.position = Vector2(40 * _scale, topPadding + 2 * _scale);
+      _coinIcon.position = Vector2(12 * _scale, hudHeight - _coinSize - 4 * _scale);
+      _coinText.position = Vector2(40 * _scale, hudHeight - (18 * _scale) - 6 * _scale);
 
+      // Cập nhật vị trí Trái tim về đáy HUD
       for (int i = 0; i < _hearts.length; i++) {
         _hearts[i].position = Vector2(
-          size.x - (30 * _scale) * (i + 1) - 10 * _scale,
-          topPadding,
+          size.x - (36 * _scale * (i + 1)),
+          hudHeight - (24 * _scale) - 4 * _scale,
         );
       }
     }
@@ -420,8 +424,20 @@ class DinoRunnerGame extends FlameGame {
     overlays.add('secretMessage');
   }
 
+  void showPauseMenu() {
+    overlays.remove('secretMessage');
+    overlays.add('pauseMenu');
+    _isRunning = false;
+  }
+
+  void startCountdown() {
+    overlays.remove('pauseMenu');
+    overlays.add('countdown');
+  }
+
   void resumeGame() {
     overlays.remove('secretMessage');
+    overlays.remove('countdown');
     _isRunning = true;
   }
 

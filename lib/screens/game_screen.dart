@@ -1,13 +1,17 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:developer';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../dino_game.dart';
-import '../data/movieRepo.dart';
+import '../models/media_preview.dart';
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  final List<MediaPreview> initialMovies;
+  const GameScreen({super.key, required this.initialMovies});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -15,33 +19,13 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late final DinoRunnerGame _game;
-  bool _isLoading = true;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _game = DinoRunnerGame();
-    getTopMovies();
-  }
-
-  Future<void> getTopMovies() async {
-    try {
-      final movieRepo = MovieRepo();
-      final movies = await movieRepo.getTrendingMovies();
-      _game.movies = movies;
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      log('Error fetching movies: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+    _game.movies = widget.initialMovies;
   }
 
   @override
@@ -82,10 +66,33 @@ class _GameScreenState extends State<GameScreen> {
             },
             child: GameWidget<DinoRunnerGame>(
               game: _game,
+              loadingBuilder: (context) => Scaffold(
+                backgroundColor: const Color(0xFFB3E5FC),
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const CircularProgressIndicator(color: Colors.white),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'LOADING...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               overlayBuilderMap: {
                 'gameOver': (context, game) => _GameOverOverlay(game: game),
                 'secretMessage': (context, game) =>
                     _SecretMessageOverlay(game: game),
+                'pauseMenu': (context, game) => _PauseOverlay(game: game),
+                'countdown': (context, game) => _CountdownOverlay(game: game),
               },
             ),
           ),
@@ -115,14 +122,20 @@ class _GameScreenState extends State<GameScreen> {
   }
 }
 
-class _SecretMessageOverlay extends StatelessWidget {
+class _SecretMessageOverlay extends StatefulWidget {
   final DinoRunnerGame game;
-
   const _SecretMessageOverlay({required this.game});
 
   @override
+  State<_SecretMessageOverlay> createState() => _SecretMessageOverlayState();
+}
+
+class _SecretMessageOverlayState extends State<_SecretMessageOverlay> {
+  bool _isAdded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final movie = game.currentMovie;
+    final movie = widget.game.currentMovie;
     if (movie == null) return const SizedBox.shrink();
 
     return Center(
@@ -209,24 +222,52 @@ class _SecretMessageOverlay extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          log('User clicked: Add to My List - ${movie.title}');
-                          game.resumeGame();
+                      child: GestureDetector(
+                        onTap: () {
+                          if (!_isAdded) {
+                            setState(() => _isAdded = true);
+                            log('User clicked: Add to My List - ${movie.title}');
+                            // Giữ lại 1 giây để người dùng thấy hiệu ứng rồi mới tắt (tùy chọn)
+                            Future.delayed(const Duration(milliseconds: 800), () {
+                              if (mounted) widget.game.resumeGame();
+                            });
+                          }
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A1A1A),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: _isAdded ? const Color(0xFF4CAF50) : const Color(0xFF1A1A1A),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: const Text(
-                          'Add to My List',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
+                          alignment: Alignment.center,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: _isAdded
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.check, color: Colors.white, size: 18),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Added',
+                                        key: ValueKey('added'),
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  )
+                                : const Text(
+                                    'Add to My List',
+                                    key: ValueKey('add'),
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold),
+                                  ),
                           ),
                         ),
                       ),
@@ -234,9 +275,23 @@ class _SecretMessageOverlay extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {
-                          log('User clicked: Play Trailer - ${movie.title}');
-                          game.resumeGame();
+                        onPressed: () async {
+                          if (movie.trailerKey != null &&
+                              movie.trailerKey!.isNotEmpty) {
+                            final Uri url = Uri.parse(
+                                'https://www.youtube.com/watch?v=${movie.trailerKey}');
+                            if (!await launchUrl(url,
+                                mode: LaunchMode.externalApplication)) {
+                              log('Could not launch $url');
+                            }
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Không tìm thấy Trailer cho phim này')),
+                            );
+                          }
+                          // Thay vì resume ngay, hãy hiện menu Pause
+                          widget.game.showPauseMenu();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
@@ -264,7 +319,7 @@ class _SecretMessageOverlay extends StatelessWidget {
             top: -20,
             right: -10,
             child: GestureDetector(
-              onTap: () => game.resumeGame(),
+              onTap: () => widget.game.resumeGame(),
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: const BoxDecoration(
@@ -414,6 +469,82 @@ class _GameOverOverlay extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PauseOverlay extends StatelessWidget {
+  final DinoRunnerGame game;
+  const _PauseOverlay({required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black45,
+      child: Center(
+        child: GestureDetector(
+          onTap: () => game.startCountdown(),
+          child: Container(
+            width: 100,
+            height: 100,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF7941D),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5)),
+              ],
+            ),
+            child: const Icon(Icons.play_arrow_rounded, size: 80, color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CountdownOverlay extends StatefulWidget {
+  final DinoRunnerGame game;
+  const _CountdownOverlay({required this.game});
+
+  @override
+  State<_CountdownOverlay> createState() => _CountdownOverlayState();
+}
+
+class _CountdownOverlayState extends State<_CountdownOverlay> {
+  int _seconds = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() async {
+    for (int i = 3; i > 0; i--) {
+      if (!mounted) return;
+      setState(() => _seconds = i);
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    widget.game.resumeGame();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black26,
+      child: Center(
+        child: Text(
+          '$_seconds',
+          style: const TextStyle(
+            fontSize: 120,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            shadows: [
+              Shadow(color: Colors.black45, offset: Offset(4, 4), blurRadius: 10),
+            ],
+          ),
         ),
       ),
     );
