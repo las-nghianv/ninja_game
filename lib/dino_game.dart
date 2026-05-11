@@ -11,6 +11,7 @@ import 'components/effects.dart';
 import 'components/ground_component.dart';
 import 'components/strip_component.dart';
 import 'const/game_constants.dart';
+import 'models/media_preview.dart';
 
 class DinoRunnerGame extends FlameGame {
   late final TiledGroundComponent _ground;
@@ -26,7 +27,10 @@ class DinoRunnerGame extends FlameGame {
   late AudioPool _jumpPool;
   late AudioPool _coinPool;
 
-  Vector2 _dinoSize = Vector2(GameConstants.baseDinoWidth, GameConstants.baseDinoHeight);
+  Vector2 _dinoSize = Vector2(
+    GameConstants.baseDinoWidth,
+    GameConstants.baseDinoHeight,
+  );
   Vector2 _velocity = Vector2.zero();
   double _obstacleTimer = 0;
   double _platformTimer = 0;
@@ -34,6 +38,7 @@ class DinoRunnerGame extends FlameGame {
   double _boxTimer = 0;
   double _cloudTimer = 0;
   int _coinCount = 0;
+  int get coinCount => _coinCount;
   int _lives = 3;
   bool _isRunning = true;
   bool _isInvulnerable = false;
@@ -44,8 +49,9 @@ class DinoRunnerGame extends FlameGame {
   double _scale = 1.0;
   final List<TextComponent> _hearts = [];
   final List<RectangleComponent> _boxes = [];
-  String currentSecretMessage = '';
-  
+  List<MediaPreview> movies = [];
+  MediaPreview? currentMovie;
+
   double _gravity = GameConstants.baseGravity;
   double _jumpSpeed = GameConstants.baseJumpSpeed;
   double _groundHeight = GameConstants.baseGroundHeight;
@@ -70,10 +76,7 @@ class DinoRunnerGame extends FlameGame {
   Future<void> onLoad() async {
     await super.onLoad();
 
-    await FlameAudio.audioCache.loadAll([
-      'bom.wav',
-      'secre.wav',
-    ]);
+    await FlameAudio.audioCache.loadAll(['bom.wav', 'secre.wav']);
 
     _jumpPool = await FlameAudio.createPool('jump.wav', maxPlayers: 3);
     _coinPool = await FlameAudio.createPool('coin.wav', maxPlayers: 4);
@@ -98,24 +101,39 @@ class DinoRunnerGame extends FlameGame {
     _hitSprite = Sprite(await images.load('Group 27.png'));
     _platformSprite = Sprite(await images.load('Frame 59.png'));
     _coinSprite = Sprite(await images.load('coin.png'));
-    _cloudSprite = Sprite(await images.load('Group cloud.png'));
+    _cloudSprite = Sprite(await images.load('cloud.png'));
+
+    // Tạo thanh HUD (AppBar) ở trên cùng với chiều cao 10% màn hình và bo góc dưới
+    final double hudHeight = size.y * 0.1;
+    // Sử dụng class HUDBar tùy chỉnh để hỗ trợ bo góc
+    final hudBar = HUDBar(
+      size: Vector2(size.x, hudHeight),
+      radius: 2 * _scale,
+      color: const Color(0xFF88DBEF),
+      priority: 10,
+    );
+    add(hudBar);
 
     _coinIcon = SpriteComponent(
       sprite: _coinSprite,
       size: Vector2.all(_coinSize),
-      position: Vector2(12 * _scale, 12 * _scale),
+      // Đặt vị trí ở sát đáy thanh HUD
+      position: Vector2(12 * _scale, hudHeight - _coinSize - 4 * _scale),
+      priority: 11,
     );
 
     _coinText = TextComponent(
       text: '0',
       textRenderer: TextPaint(
         style: TextStyle(
-          color: Colors.black87,
+          color: Colors.white,
           fontSize: 18 * _scale,
           fontWeight: FontWeight.w700,
         ),
       ),
-      position: Vector2(40 * _scale, 14 * _scale),
+      // Căn chỉnh Text theo dòng với Icon xu
+      position: Vector2(40 * _scale, hudHeight - (18 * _scale) - 6 * _scale),
+      priority: 11,
     );
 
     _statusText = TextComponent(
@@ -134,19 +152,23 @@ class DinoRunnerGame extends FlameGame {
     _createHearts();
 
     final double w1 = _spawnPlatform(initialX: size.x * 0.55);
-    _spawnPlatform(initialX: math.max(size.x * 0.9, size.x * 0.55 + w1 + 40 * _scale));
+    _spawnPlatform(
+      initialX: math.max(size.x * 0.9, size.x * 0.55 + w1 + 40 * _scale),
+    );
   }
 
   void _createHearts() {
+    final double hudHeight = size.y * 0.05;
     for (int i = 0; i < _lives; i++) {
       final heart = TextComponent(
         text: '❤️',
-        textRenderer: TextPaint(
-          style: TextStyle(
-            fontSize: 24 * _scale,
-          ),
+        textRenderer: TextPaint(style: TextStyle(fontSize: 24 * _scale)),
+        // Căn lề phải và đặt sát đáy thanh HUD
+        position: Vector2(
+          size.x - (36 * _scale * (i + 1)),
+          hudHeight - (24 * _scale) - 4 * _scale,
         ),
-        position: Vector2(size.x - (30 * _scale) * (i + 1) - 10 * _scale, size.y * 0.05),
+        priority: 11,
       );
       _hearts.add(heart);
       add(heart);
@@ -170,9 +192,12 @@ class DinoRunnerGame extends FlameGame {
       _coinIcon.size = Vector2.all(_coinSize);
       _coinIcon.position = Vector2(12 * _scale, topPadding);
       _coinText.position = Vector2(40 * _scale, topPadding + 2 * _scale);
-      
+
       for (int i = 0; i < _hearts.length; i++) {
-        _hearts[i].position = Vector2(size.x - (30 * _scale) * (i + 1) - 10 * _scale, topPadding);
+        _hearts[i].position = Vector2(
+          size.x - (30 * _scale) * (i + 1) - 10 * _scale,
+          topPadding,
+        );
       }
     }
   }
@@ -193,7 +218,7 @@ class DinoRunnerGame extends FlameGame {
       _invulnerableTimer -= dt;
       final bool isVisible = (_invulnerableTimer * 10).toInt() % 2 == 0;
       _dino.paint.color = Colors.white.withOpacity(isVisible ? 1.0 : 0.5);
-      
+
       if (_invulnerableTimer <= 0) {
         _isInvulnerable = false;
         _dino.paint.color = Colors.white.withOpacity(1.0);
@@ -226,13 +251,14 @@ class DinoRunnerGame extends FlameGame {
     _boxTimer -= dt;
     if (_boxTimer <= 0) {
       _spawnBox();
-      _boxTimer = 10.0 + _rng.nextDouble() * 10.0;
+      _boxTimer = 4.0 + _rng.nextDouble() * 4.0; // Xuất hiện sau mỗi 4-8 giây
     }
 
     _cloudTimer -= dt;
     if (_cloudTimer <= 0) {
       _spawnCloud();
-      _cloudTimer = 2.0 + _rng.nextDouble() * 3.0;
+      // Sinh mây thường xuyên hơn (mỗi 1-3 giây)
+      _cloudTimer = 1.0 + _rng.nextDouble() * 2.0;
     }
 
     _updatePlatforms(dt);
@@ -273,7 +299,7 @@ class DinoRunnerGame extends FlameGame {
   double _getRandomSafeY(double objHeight) {
     final double groundTop = size.y - _groundHeight;
     final bool spawnAbovePlatform = _rng.nextBool();
-    
+
     if (spawnAbovePlatform) {
       final double offset = (130 + _rng.nextDouble() * 30) * _scale;
       return groundTop - objHeight - offset;
@@ -334,11 +360,8 @@ class DinoRunnerGame extends FlameGame {
     _coinPool.start(volume: 0.5);
     _coinCount++;
     _coinText.text = '$_coinCount';
-    
-    final effect = PlusOneEffect(
-      position: position.clone(),
-      scale: _scale,
-    );
+
+    final effect = PlusOneEffect(position: position.clone(), scale: _scale);
     add(effect);
   }
 
@@ -391,7 +414,9 @@ class DinoRunnerGame extends FlameGame {
   void _collectBox() {
     FlameAudio.play('secre.wav', volume: 0.6);
     _isRunning = false;
-    currentSecretMessage = GameConstants.secretMessages[_rng.nextInt(GameConstants.secretMessages.length)];
+    if (movies.isNotEmpty) {
+      currentMovie = movies[_rng.nextInt(movies.length)];
+    }
     overlays.add('secretMessage');
   }
 
@@ -401,19 +426,26 @@ class DinoRunnerGame extends FlameGame {
   }
 
   void _spawnCloud() {
-    final double scaleRatio = 0.3 + _rng.nextDouble() * 0.4;
+    // Kích thước ngẫu nhiên đa dạng hơn
+    final double scaleRatio = 0.2 + _rng.nextDouble() * 0.6;
     final double cloudWidth = _cloudSprite.srcSize.x * scaleRatio * _scale;
     final double cloudHeight = _cloudSprite.srcSize.y * scaleRatio * _scale;
-    
-    final double groundTop = size.y - _groundHeight;
-    final double yPos = _rng.nextDouble() * (groundTop * 0.6); 
-    
+
+    // Vị trí Y trải dài từ đỉnh màn hình đến sát mặt đất
+    final double yPos =
+        _rng.nextDouble() * (size.y - _groundHeight - cloudHeight);
+
     final SpriteComponent cloud = SpriteComponent(
       sprite: _cloudSprite,
       size: Vector2(cloudWidth, cloudHeight),
-      position: Vector2(size.x + 20, yPos),
-      priority: -1, 
+      // Cho mây xuất hiện lệch nhau một chút để không bị trùng hàng
+      position: Vector2(size.x + _rng.nextDouble() * 100, yPos),
+      priority: -1,
     );
+
+    // Lưu tỉ lệ scale để tính toán tốc độ trôi (Parallax)
+    // Mây càng nhỏ trôi càng chậm
+    cloud.add(CloudData(speedMultiplier: 0.3 + (scaleRatio * 0.4)));
 
     _clouds.add(cloud);
     add(cloud);
@@ -421,9 +453,12 @@ class DinoRunnerGame extends FlameGame {
 
   void _updateClouds(double dt) {
     for (final SpriteComponent cloud in List.of(_clouds)) {
-      cloud.position.x -= (_scrollSpeed * 0.5) * dt;
+      final data = cloud.children.query<CloudData>().firstOrNull;
+      final multiplier = data?.speedMultiplier ?? 0.5;
 
-      if (cloud.position.x + cloud.size.x < -20) {
+      cloud.position.x -= (_scrollSpeed * multiplier) * dt;
+
+      if (cloud.position.x + cloud.size.x < -100) {
         _clouds.remove(cloud);
         cloud.removeFromParent();
       }
@@ -562,12 +597,12 @@ class DinoRunnerGame extends FlameGame {
         heart.removeFromParent();
       }
     }
-    
+
     if (_lives <= 0) {
       gameOver();
     } else {
       _isInvulnerable = true;
-      _invulnerableTimer = 2.0; 
+      _invulnerableTimer = 2.0;
     }
   }
 
@@ -637,7 +672,7 @@ class DinoRunnerGame extends FlameGame {
 
   void gameOver() {
     _isRunning = false;
-    _statusText.text = ''; 
+    _statusText.text = '';
     overlays.add('gameOver');
   }
 
@@ -673,7 +708,7 @@ class DinoRunnerGame extends FlameGame {
     }
     _hearts.clear();
     _createHearts();
-    
+
     _velocity = Vector2.zero();
     _dino.position = Vector2(60 * _scale, size.y - _groundHeight - _dinoSize.y);
     _isRunning = true;
@@ -699,7 +734,43 @@ class DinoRunnerGame extends FlameGame {
     _platformMaxOffset = GameConstants.basePlatformMaxOffset * _scale;
     _cactusMinSize = GameConstants.baseCactusMin * _scale;
     _cactusRange = GameConstants.baseCactusRange * _scale;
-    _dinoSize = Vector2(GameConstants.baseDinoWidth, GameConstants.baseDinoHeight) * _scale;
+    _dinoSize =
+        Vector2(GameConstants.baseDinoWidth, GameConstants.baseDinoHeight) *
+        _scale;
     _coinSize = GameConstants.baseCoinSize * _scale;
+  }
+}
+
+class CloudData extends Component {
+  final double speedMultiplier;
+  CloudData({required this.speedMultiplier});
+}
+
+// Class mới để vẽ thanh HUD bo góc
+class HUDBar extends RectangleComponent {
+  final double radius;
+  final Color color;
+
+  HUDBar({
+    required Vector2 size,
+    required this.radius,
+    required this.color,
+    int priority = 0,
+  }) : super(
+          size: size,
+          position: Vector2(0, 0),
+          priority: priority,
+          paint: Paint()..color = color,
+        );
+
+  @override
+  void render(Canvas canvas) {
+    // Vẽ hình chữ nhật bo góc (RRect)
+    final rrect = RRect.fromRectAndCorners(
+      size.toRect(),
+      bottomLeft: Radius.circular(radius),
+      bottomRight: Radius.circular(radius),
+    );
+    canvas.drawRRect(rrect, paint);
   }
 }
